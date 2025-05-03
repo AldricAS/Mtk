@@ -1,104 +1,146 @@
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html><html>
 <head>
-  <title>Game Matematika</title>
+  <title>Game Matematika Multiplayer</title>
   <style>
-    body {
-      text-align: center;
-      font-family: sans-serif;
-      background-color: #ffffcc;
-    }
-    #game, #result {
-      display: none;
-    }
-    .btn {
-      padding: 15px;
-      margin: 10px;
-      font-size: 18px;
-      border: none;
-      cursor: pointer;
-      border-radius: 10px;
-    }
-    .red { background-color: #ff4d4d; color: white; }
-    .green { background-color: #66cc66; color: white; }
-    .yellow { background-color: #ffcc00; color: black; }
+    body { font-family: sans-serif; text-align: center; background: #ffffcc; }
+    .btn { padding: 10px 20px; margin: 10px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; }
+    .green { background: #66cc66; color: white; }
+    .red { background: #ff4d4d; color: white; }
+    .yellow { background: #ffcc00; color: black; }
+    #game, #room, #quiz, #result { display: none; }
   </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
+  apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
+  authDomain: "matematika-game-b3811.firebaseapp.com",
+  databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
+  projectId: "matematika-game-b3811",
+  storageBucket: "matematika-game-b3811.appspot.com",
+  messagingSenderId: "1041108910280",
+  appId: "1:1041108910280:web:0c338c20b17c6e914ba5fd",
+  measurementId: "G-P1T5E6P9YR"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let playerName = "";
+let roomCode = "";
+let score = 0;
+let correct = 0;
+let totalTime = 300;
+let timer;
+
+window.start = () => {
+  playerName = document.getElementById("name").value.trim();
+  if (!playerName) return alert("Masukkan nama dulu!");
+  document.getElementById("start").style.display = "none";
+  document.getElementById("room").style.display = "block";
+}
+
+window.createRoom = () => {
+  roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+  set(ref(db, `rooms/${roomCode}`), {
+    player1: { name: playerName, score: 0 },
+    status: "waiting"
+  });
+  document.getElementById("room").style.display = "none";
+  document.getElementById("quiz").style.display = "block";
+  document.getElementById("code").innerText = roomCode;
+  startGame("player1");
+}
+
+window.joinRoom = () => {
+  const code = document.getElementById("joinCode").value;
+  get(ref(db, `rooms/${code}`)).then(snapshot => {
+    if (snapshot.exists()) {
+      roomCode = code;
+      update(ref(db, `rooms/${code}`), {
+        player2: { name: playerName, score: 0 },
+        status: "ready"
+      });
+      document.getElementById("room").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      document.getElementById("code").innerText = roomCode;
+      startGame("player2");
+    } else alert("Kode room tidak ditemukan!");
+  });
+}
+
+function startGame(role) {
+  timer = setInterval(() => {
+    totalTime--;
+    document.getElementById("time").innerText = totalTime;
+    if (totalTime <= 0) endGame(role);
+  }, 1000);
+  generateQuestion(role);
+  onValue(ref(db, `rooms/${roomCode}`), snap => {
+    const data = snap.val();
+    if (role === "player1" && data.player2) {
+      document.getElementById("enemyScore").innerText = `${data.player2.name}: ${data.player2.score}`;
+    } else if (role === "player2" && data.player1) {
+      document.getElementById("enemyScore").innerText = `${data.player1.name}: ${data.player1.score}`;
+    }
+  });
+}
+
+function generateQuestion(role) {
+  const a = Math.floor(Math.random() * 10) + 1;
+  const b = Math.floor(Math.random() * 10) + 1;
+  const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
+  correct = op === "+" ? a + b : op === "-" ? a - b : a * b;
+  document.getElementById("question").innerText = `${a} ${op} ${b} = ?`;
+  let options = [correct];
+  while (options.length < 4) {
+    let wrong = correct + Math.floor(Math.random() * 10 - 5);
+    if (!options.includes(wrong)) options.push(wrong);
+  }
+  options.sort(() => Math.random() - 0.5);
+  document.getElementById("answers").innerHTML = options.map(o => `<button class='btn yellow' onclick='checkAnswer(${o}, "${role}")'>${o}</button>`).join("");
+}
+
+window.checkAnswer = (ans, role) => {
+  if (ans === correct) score++;
+  document.getElementById("myScore").innerText = score;
+  update(ref(db, `rooms/${roomCode}/${role}`), { score });
+  generateQuestion(role);
+}
+
+function endGame(role) {
+  clearInterval(timer);
+  get(ref(db, `rooms/${roomCode}`)).then(snap => {
+    const data = snap.val();
+    let me = data[role].score;
+    let enemy = data[role === "player1" ? "player2" : "player1"].score;
+    let msg = me > enemy ? "Kamu Menang!" : me < enemy ? "Kamu Kalah!" : "Seri!";
+    document.getElementById("quiz").style.display = "none";
+    document.getElementById("result").style.display = "block";
+    document.getElementById("message").innerText = msg;
+  });
+}
+
+  </script>
 </head>
 <body>
-
   <div id="start">
-    <h1>Game Matematika</h1>
-    <input type="text" id="name" placeholder="Masukkan nama"><br><br>
-    <button onclick="startGame()" class="btn green">Mulai</button>
+    <h1>Game Matematika Multiplayer</h1>
+    <input id="name" placeholder="Masukkan nama"><br><br>
+    <button onclick="start()" class="btn green">Lanjut</button>
+  </div>  <div id="room">
+    <button onclick="createRoom()" class="btn yellow">Buat Room</button><br><br>
+    <input id="joinCode" placeholder="Kode Room">
+    <button onclick="joinRoom()" class="btn red">Gabung Room</button>
+  </div>  <div id="quiz">
+    <h3>Kode Room: <span id="code"></span></h3>
+    <h2 id="question"></h2>
+    <div id="answers"></div>
+    <h3>Waktu: <span id="time">300</span> detik</h3>
+    <h3>Skor Kamu: <span id="myScore">0</span></h3>
+    <h3>Skor Lawan: <span id="enemyScore">0</span></h3>
+  </div>  <div id="result">
+    <h1 id="message"></h1>
+    <button onclick="location.reload()" class="btn green">Main Lagi</button>
   </div>
-
-  <div id="game">
-    <h2 id="username"></h2>
-    <h3 id="timer">Waktu: 300</h3>
-    <h2 id="question">Loading...</h2>
-    <div id="choices"></div>
-    <h3>Skor: <span id="score">0</span></h3>
-  </div>
-
-  <div id="result">
-    <h2 id="message"></h2>
-    <button onclick="location.reload()" class="btn red">Main Lagi</button>
-  </div>
-
-  <script>
-    let score = 0;
-    let time = 300;
-    let correctAnswer = 0;
-    let timer;
-
-    function startGame() {
-      const name = document.getElementById("name").value.trim();
-      if (!name) return alert("Masukkan nama dulu!");
-
-      document.getElementById("start").style.display = "none";
-      document.getElementById("game").style.display = "block";
-      document.getElementById("username").innerText = "Halo, " + name;
-
-      generateQuestion();
-      timer = setInterval(() => {
-        time--;
-        document.getElementById("timer").innerText = "Waktu: " + time;
-        if (time <= 0) endGame();
-      }, 1000);
-    }
-
-    function generateQuestion() {
-      const a = Math.floor(Math.random() * 10) + 1;
-      const b = Math.floor(Math.random() * 10) + 1;
-      const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
-      correctAnswer = op === "+" ? a + b : op === "-" ? a - b : a * b;
-
-      document.getElementById("question").innerText = `${a} ${op} ${b} = ?`;
-
-      let options = [correctAnswer];
-      while (options.length < 4) {
-        let wrong = correctAnswer + Math.floor(Math.random() * 10 - 5);
-        if (!options.includes(wrong)) options.push(wrong);
-      }
-
-      options.sort(() => Math.random() - 0.5);
-      document.getElementById("choices").innerHTML = options.map(opt =>
-        `<button class="btn yellow" onclick="checkAnswer(${opt})">${opt}</button>`
-      ).join("");
-    }
-
-    function checkAnswer(ans) {
-      if (ans === correctAnswer) score++;
-      document.getElementById("score").innerText = score;
-      generateQuestion();
-    }
-
-    function endGame() {
-      clearInterval(timer);
-      document.getElementById("game").style.display = "none";
-      document.getElementById("result").style.display = "block";
-      document.getElementById("message").innerText = score >= 10 ? "Menang!" : "Waktu Habis. Skor kamu: " + score;
-    }
-  </script>
 </body>
 </html>
