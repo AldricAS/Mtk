@@ -23,9 +23,33 @@ let playerId = Math.random().toString(36).substring(2, 8);
 let current = 0;
 let questions = [];
 let score = 0;
+let timer = 300;
+let interval;
 
 function randomCode() {
   return Math.random().toString(36).substr(2, 5).toUpperCase();
+}
+
+function updateScore() {
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: false });
+}
+
+function finishGame() {
+  clearInterval(interval);
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: true });
+}
+
+function checkWinner() {
+  onValue(ref(db, `rooms/${roomCode}/players`), snapshot => {
+    const data = snapshot.val();
+    let donePlayers = Object.values(data).filter(p => p.done);
+    if (donePlayers.length === Object.keys(data).length) {
+      let scores = Object.entries(data).sort((a, b) => b[1].score - a[1].score);
+      let winner = scores[0][0];
+      document.getElementById("result").innerText = winner === playerId ? "Kamu Menang!" : "Kamu Kalah!";
+      document.getElementById("result").style.display = "block";
+    }
+  });
 }
 
 window.createRoom = () => {
@@ -40,7 +64,7 @@ window.createRoom = () => {
   set(ref(db, 'rooms/' + roomCode), {
     questions,
     players: {
-      [playerId]: { score: 0 }
+      [playerId]: { score: 0, done: false }
     }
   }).then(() => {
     alert("Room dibuat: " + roomCode);
@@ -55,7 +79,7 @@ window.joinRoom = () => {
       const data = snapshot.val();
       questions = data.questions;
       const updates = {};
-      updates['rooms/' + roomCode + '/players/' + playerId] = { score: 0 };
+      updates['rooms/' + roomCode + '/players/' + playerId] = { score: 0, done: false };
       update(ref(db), updates).then(() => {
         alert("Gabung ke room: " + roomCode);
         startGame();
@@ -66,18 +90,14 @@ window.joinRoom = () => {
   });
 };
 
-function updateScore() {
-  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score });
-}
-
 function listenScores() {
   const scoreBoard = document.getElementById("scores");
   onValue(ref(db, `rooms/${roomCode}/players`), snapshot => {
     const data = snapshot.val();
     let html = "";
     for (let id in data) {
-      const isMe = id === playerId ? "(Kamu)" : "";
-      html += `<div>${id}: ${data[id].score} ${isMe}</div>`;
+      const isMe = id === playerId ? " (Kamu)" : "";
+      html += `<div><b>${id}</b>: ${data[id].score}${isMe}</div>`;
     }
     scoreBoard.innerHTML = html;
   });
@@ -87,10 +107,26 @@ function startGame() {
   document.getElementById("menu").style.display = "none";
   document.getElementById("multiplayerMenu").style.display = "none";
   document.getElementById("quiz").style.display = "block";
+  document.getElementById("timer").style.display = "block";
   current = 0;
   score = 0;
   listenScores();
   showQuestion();
+  startTimer();
+}
+
+function startTimer() {
+  interval = setInterval(() => {
+    timer--;
+    const m = Math.floor(timer / 60).toString().padStart(2, '0');
+    const s = (timer % 60).toString().padStart(2, '0');
+    document.getElementById("timer").innerText = `Waktu: ${m}:${s}`;
+    if (timer <= 0) {
+      finishGame();
+      checkWinner();
+      clearInterval(interval);
+    }
+  }, 1000);
 }
 
 window.showQuestion = () => {
@@ -118,32 +154,34 @@ window.showQuestion = () => {
         document.getElementById("correctSound").play();
         score++;
         updateScore();
-        alert("Benar!");
       } else {
         document.getElementById("wrongSound").play();
-        alert("Salah!");
       }
-
       current++;
       if (current < questions.length) showQuestion();
-      else alert("Selesai! Skormu: " + score);
+      else {
+        finishGame();
+        checkWinner();
+      }
     };
     document.getElementById("options").appendChild(btn);
   });
 };
 
   </script>  <style>
-    body { font-family: Arial; background: #fef9e7; text-align: center; margin: 0; padding: 0; }
-    .container { padding: 50px 20px; }
-    .question { font-size: 2em; margin-bottom: 30px; }
+    body { font-family: Arial; background: #fffde7; text-align: center; margin: 0; padding: 0; }
+    .container { padding: 40px 20px; }
+    .question { font-size: 2.5em; margin-bottom: 30px; }
     .options { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-    .option { border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; color: white; cursor: pointer; transition: transform 0.2s; }
+    .option { border-radius: 50%; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 1.7em; color: white; cursor: pointer; transition: transform 0.2s; font-weight: bold; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); }
     .option:hover { transform: scale(1.1); }
     .yellow { background-color: #f1c40f; }
     .red { background-color: #e74c3c; }
     .green { background-color: #2ecc71; }
-    button { margin: 10px; padding: 10px 20px; font-size: 1em; }
-    #scores { margin-top: 20px; font-size: 1.2em; background: #fff; padding: 10px; border-radius: 10px; display: inline-block; }
+    button { margin: 10px; padding: 10px 20px; font-size: 1em; cursor: pointer; }
+    #scores { margin-top: 20px; font-size: 1.1em; background: #ffffff; padding: 10px; border-radius: 10px; display: inline-block; }
+    #result { font-size: 2em; color: #d35400; display: none; margin-top: 20px; }
+    #timer { font-size: 1.5em; color: #2c3e50; display: none; margin-top: 10px; }
   </style></head>
 <body>
   <div class="container">
@@ -159,7 +197,9 @@ window.showQuestion = () => {
 <div id="quiz" style="display:none">
   <div class="question" id="question"></div>
   <div class="options" id="options"></div>
+  <div id="timer"></div>
   <div id="scores"></div>
+  <div id="result"></div>
 </div>
 
   </div><audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-09.mp3"></audio> <audio id="wrongSound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
