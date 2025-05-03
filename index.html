@@ -11,7 +11,7 @@
   </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
+    import { getDatabase, ref, set, get, onValue, update, push, child } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
   apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
   authDomain: "matematika-game-b3811.firebaseapp.com",
   databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
@@ -26,6 +26,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let playerName = "";
+let playerId = "";
 let roomCode = "";
 let score = 0;
 let correct = 0;
@@ -41,14 +42,11 @@ window.start = () => {
 
 window.createRoom = () => {
   roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-  set(ref(db, `rooms/${roomCode}`), {
-    player1: { name: playerName, score: 0 },
-    status: "waiting"
-  });
-  document.getElementById("room").style.display = "none";
-  document.getElementById("quiz").style.display = "block";
-  document.getElementById("code").innerText = roomCode;
-  startGame("player1");
+  const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
+  playerId = newPlayerRef.key;
+  set(newPlayerRef, { name: playerName, score: 0 });
+  set(ref(db, `rooms/${roomCode}/status`), "waiting");
+  showQuiz();
 }
 
 window.joinRoom = () => {
@@ -56,36 +54,39 @@ window.joinRoom = () => {
   get(ref(db, `rooms/${code}`)).then(snapshot => {
     if (snapshot.exists()) {
       roomCode = code;
-      update(ref(db, `rooms/${code}`), {
-        player2: { name: playerName, score: 0 },
-        status: "ready"
-      });
-      document.getElementById("room").style.display = "none";
-      document.getElementById("quiz").style.display = "block";
-      document.getElementById("code").innerText = roomCode;
-      startGame("player2");
+      const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
+      playerId = newPlayerRef.key;
+      set(newPlayerRef, { name: playerName, score: 0 });
+      showQuiz();
     } else alert("Kode room tidak ditemukan!");
   });
 }
 
-function startGame(role) {
+function showQuiz() {
+  document.getElementById("room").style.display = "none";
+  document.getElementById("quiz").style.display = "block";
+  document.getElementById("code").innerText = roomCode;
+  startGame();
+}
+
+function startGame() {
   timer = setInterval(() => {
     totalTime--;
     document.getElementById("time").innerText = totalTime;
-    if (totalTime <= 0) endGame(role);
+    if (totalTime <= 0) endGame();
   }, 1000);
-  generateQuestion(role);
-  onValue(ref(db, `rooms/${roomCode}`), snap => {
-    const data = snap.val();
-    if (role === "player1" && data.player2) {
-      document.getElementById("enemyScore").innerText = `${data.player2.name}: ${data.player2.score}`;
-    } else if (role === "player2" && data.player1) {
-      document.getElementById("enemyScore").innerText = `${data.player1.name}: ${data.player1.score}`;
+  generateQuestion();
+  onValue(ref(db, `rooms/${roomCode}/players`), snap => {
+    const players = snap.val();
+    let scoreList = "";
+    for (let id in players) {
+      scoreList += `<h4>${players[id].name}: ${players[id].score}</h4>`;
     }
+    document.getElementById("scores").innerHTML = scoreList;
   });
 }
 
-function generateQuestion(role) {
+function generateQuestion() {
   const a = Math.floor(Math.random() * 10) + 1;
   const b = Math.floor(Math.random() * 10) + 1;
   const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
@@ -97,26 +98,29 @@ function generateQuestion(role) {
     if (!options.includes(wrong)) options.push(wrong);
   }
   options.sort(() => Math.random() - 0.5);
-  document.getElementById("answers").innerHTML = options.map(o => `<button class='btn yellow' onclick='checkAnswer(${o}, "${role}")'>${o}</button>`).join("");
+  document.getElementById("answers").innerHTML = options.map(o => `<button class='btn yellow' onclick='checkAnswer(${o})'>${o}</button>`).join("");
 }
 
-window.checkAnswer = (ans, role) => {
+window.checkAnswer = (ans) => {
   if (ans === correct) score++;
-  document.getElementById("myScore").innerText = score;
-  update(ref(db, `rooms/${roomCode}/${role}`), { score });
-  generateQuestion(role);
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score });
+  generateQuestion();
 }
 
-function endGame(role) {
+function endGame() {
   clearInterval(timer);
-  get(ref(db, `rooms/${roomCode}`)).then(snap => {
-    const data = snap.val();
-    let me = data[role].score;
-    let enemy = data[role === "player1" ? "player2" : "player1"].score;
-    let msg = me > enemy ? "Kamu Menang!" : me < enemy ? "Kamu Kalah!" : "Seri!";
+  get(ref(db, `rooms/${roomCode}/players`)).then(snap => {
+    const players = snap.val();
+    let scores = [];
+    for (let id in players) {
+      scores.push({ name: players[id].name, score: players[id].score });
+    }
+    scores.sort((a, b) => b.score - a.score);
+    let winner = scores[0];
+    let message = (winner.name === playerName) ? "Kamu Menang!" : "Kamu Kalah!";
     document.getElementById("quiz").style.display = "none";
     document.getElementById("result").style.display = "block";
-    document.getElementById("message").innerText = msg;
+    document.getElementById("message").innerText = message;
   });
 }
 
@@ -136,8 +140,7 @@ function endGame(role) {
     <h2 id="question"></h2>
     <div id="answers"></div>
     <h3>Waktu: <span id="time">300</span> detik</h3>
-    <h3>Skor Kamu: <span id="myScore">0</span></h3>
-    <h3>Skor Lawan: <span id="enemyScore">0</span></h3>
+    <div id="scores"></div>
   </div>  <div id="result">
     <h1 id="message"></h1>
     <button onclick="location.reload()" class="btn green">Main Lagi</button>
