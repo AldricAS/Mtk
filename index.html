@@ -51,28 +51,13 @@
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       display: inline-block;
     }
-    #chat {
+    #startGameArea {
       margin-top: 20px;
-      background-color: #ffffff;
-      padding: 10px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      max-height: 200px;
-      overflow-y: auto;
     }
-    #chatInput {
-      width: 80%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    .message {
-      background-color: #f2f2f2;
-      padding: 8px;
-      margin: 5px 0;
-      border-radius: 5px;
-      font-size: 14px;
+    #countdown {
+      font-size: 30px;
+      font-weight: bold;
+      margin: 20px;
     }
     .host-button {
       background-color: #4CAF50;
@@ -86,6 +71,15 @@
     }
     .host-button:hover {
       background-color: #45a049;
+    }
+    .mute-button {
+      background-color: #333;
+      color: white;
+      font-size: 16px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-top: 10px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -108,15 +102,12 @@
   <!-- Game Section -->
   <div id="gameArea" class="hidden">
     <h2 id="roomInfo"></h2>
-    <div id="players"></div>
     <div id="startGameArea" class="hidden">
       <button onclick="mulaiGame()" class="host-button">Mulai Game</button>
     </div>
     <div id="countdown"></div>
     <div id="quiz"></div>
-    <div id="chat"></div>
-    <input id="chatInput" placeholder="Ketik pesan...">
-    <button onclick="sendMessage()">Kirim</button>
+    <button class="mute-button" onclick="toggleMute()">Mute/Unmute Suara</button>
   </div>
 
   <script>
@@ -138,6 +129,7 @@
     let roomCode = "";
     let playerName = "";
     let isHost = false;
+    let isMuted = false; // Default audio is not muted
 
     // Event listener untuk tombol Masukkan Nama
     document.getElementById('submitNameBtn').addEventListener('click', submitName);
@@ -161,7 +153,6 @@
       set(roomRef, {
         players: {},
         started: false,
-        chat: []
       });
       joinRoom(true); // Gabung setelah buat room
     }
@@ -179,15 +170,6 @@
       if (isHost) {
         document.getElementById('startGameArea').classList.remove('hidden');
       }
-
-      onValue(ref(db, `rooms/${roomCode}/players`), (snapshot) => {
-        const playersDiv = document.getElementById('players');
-        playersDiv.innerHTML = '<h3>Pemain:</h3>';
-        const data = snapshot.val();
-        for (const p in data) {
-          playersDiv.innerHTML += `<p>${p} - Skor: ${data[p].score}</p>`;
-        }
-      });
     }
 
     // Mulai game
@@ -197,12 +179,14 @@
       set(ref(db, `rooms/${roomCode}/started`), true);
     }
 
-    // Kirim pesan di chat
-    function sendMessage() {
-      const text = document.getElementById('chatInput').value;
-      const messageRef = push(ref(db, `rooms/${roomCode}/chat`));
-      set(messageRef, { name: playerName, text });
-      document.getElementById('chatInput').value = '';
+    // Fungsi mute/unmute suara
+    function toggleMute() {
+      isMuted = !isMuted;
+      if (isMuted) {
+        console.log('Suara dimute');
+      } else {
+        console.log('Suara di-unmute');
+      }
     }
   </script>
 </body>
