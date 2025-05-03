@@ -20,23 +20,33 @@ const db = getDatabase(app);
 
 let roomCode = "";
 let playerId = Math.random().toString(36).substring(2, 8);
+let playerName = "";
 let current = 0;
 let questions = [];
 let score = 0;
 let timer = 300;
 let interval;
 
+document.getElementById("submitName").onclick = () => {
+  const nameInput = document.getElementById("playerName").value.trim();
+  if (nameInput !== "") {
+    playerName = nameInput;
+    document.getElementById("nameMenu").style.display = "none";
+    document.getElementById("menu").style.display = "block";
+  }
+};
+
 function randomCode() {
   return Math.random().toString(36).substr(2, 5).toUpperCase();
 }
 
 function updateScore() {
-  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: false });
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: false, name: playerName });
 }
 
 function finishGame() {
   clearInterval(interval);
-  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: true });
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score, done: true, name: playerName });
 }
 
 function checkWinner() {
@@ -45,11 +55,12 @@ function checkWinner() {
     let donePlayers = Object.values(data).filter(p => p.done);
     if (donePlayers.length === Object.keys(data).length) {
       let scores = Object.entries(data).sort((a, b) => b[1].score - a[1].score);
-      let winner = scores[0][0];
-      document.getElementById("result").innerText = winner === playerId ? "Kamu Menang!" : "Kamu Kalah!";
+      const winnerId = scores[0][0];
+      const resultText = winnerId === playerId ? "Kamu Menang!" : "Kamu Kalah!";
+      document.getElementById("result").innerText = resultText;
       document.getElementById("result").style.display = "block";
     }
-  });
+  }, { onlyOnce: true });
 }
 
 window.createRoom = () => {
@@ -64,7 +75,7 @@ window.createRoom = () => {
   set(ref(db, 'rooms/' + roomCode), {
     questions,
     players: {
-      [playerId]: { score: 0, done: false }
+      [playerId]: { score: 0, done: false, name: playerName }
     }
   }).then(() => {
     alert("Room dibuat: " + roomCode);
@@ -79,7 +90,7 @@ window.joinRoom = () => {
       const data = snapshot.val();
       questions = data.questions;
       const updates = {};
-      updates['rooms/' + roomCode + '/players/' + playerId] = { score: 0, done: false };
+      updates['rooms/' + roomCode + '/players/' + playerId] = { score: 0, done: false, name: playerName };
       update(ref(db), updates).then(() => {
         alert("Gabung ke room: " + roomCode);
         startGame();
@@ -97,7 +108,7 @@ function listenScores() {
     let html = "";
     for (let id in data) {
       const isMe = id === playerId ? " (Kamu)" : "";
-      html += `<div><b>${id}</b>: ${data[id].score}${isMe}</div>`;
+      html += `<div><b>${data[id].name || id}</b>: ${data[id].score}${isMe}</div>`;
     }
     scoreBoard.innerHTML = html;
   });
@@ -185,11 +196,17 @@ window.showQuestion = () => {
   </style></head>
 <body>
   <div class="container">
-    <div id="menu">
-      <h1>Pilih Mode</h1>
-      <button onclick="createRoom()">Buat Room</button>
-      <button onclick="document.getElementById('multiplayerMenu').style.display='block'">Gabung Room</button>
-    </div><div id="multiplayerMenu" style="display:none">
+    <div id="nameMenu">
+      <h1>Masukkan Nama</h1>
+      <input id="playerName" placeholder="Nama Kamu">
+      <button id="submitName">Lanjut</button>
+    </div><div id="menu" style="display:none">
+  <h1>Pilih Mode</h1>
+  <button onclick="createRoom()">Buat Room</button>
+  <button onclick="document.getElementById('multiplayerMenu').style.display='block'">Gabung Room</button>
+</div>
+
+<div id="multiplayerMenu" style="display:none">
   <input id="roomCode" placeholder="Kode Room">
   <button onclick="joinRoom()">Gabung</button>
 </div>
