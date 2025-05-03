@@ -1,162 +1,149 @@
 <!DOCTYPE html><html>
 <head>
   <title>Game Matematika Multiplayer</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #ffffcc; }
-    .btn { padding: 10px 20px; margin: 10px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; }
-    .green { background: #66cc66; color: white; }
-    .red { background: #ff4d4d; color: white; }
-    .yellow { background: #ffcc00; color: black; }
-    #game, #room, #quiz, #result { display: none; }
+    body { font-family: Arial; text-align: center; }
+    #chat { max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-top: 10px; }
+    .hidden { display: none; }
   </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, update, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
-  apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
-  authDomain: "matematika-game-b3811.firebaseapp.com",
-  databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
-  projectId: "matematika-game-b3811",
-  storageBucket: "matematika-game-b3811.appspot.com",
-  messagingSenderId: "1041108910280",
-  appId: "1:1041108910280:web:0c338c20b17c6e914ba5fd",
-  measurementId: "G-P1T5E6P9YR"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-let playerName = "";
-let playerId = "";
-let roomCode = "";
-let score = 0;
-let correct = 0;
-let timer;
-let totalGameTime = 300; // 5 menit
-let gameStarted = false;
-
-window.start = () => {
-  playerName = document.getElementById("name").value.trim();
-  if (!playerName) return alert("Masukkan nama dulu!");
-  document.getElementById("start").style.display = "none";
-  document.getElementById("room").style.display = "block";
-}
-
-window.createRoom = () => {
-  roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-  const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
-  playerId = newPlayerRef.key;
-  set(newPlayerRef, { name: playerName, score: 0 });
-  const now = Date.now();
-  set(ref(db, `rooms/${roomCode}/startTime`), now + 5000); // mulai 5 detik lagi
-  set(ref(db, `rooms/${roomCode}/status`), "waiting");
-  showQuiz();
-}
-
-window.joinRoom = () => {
-  const code = document.getElementById("joinCode").value;
-  get(ref(db, `rooms/${code}`)).then(snapshot => {
-    if (snapshot.exists()) {
-      roomCode = code;
-      const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
-      playerId = newPlayerRef.key;
-      set(newPlayerRef, { name: playerName, score: 0 });
-      showQuiz();
-    } else alert("Kode room tidak ditemukan!");
-  });
-}
-
-function showQuiz() {
-  document.getElementById("room").style.display = "none";
-  document.getElementById("quiz").style.display = "block";
-  document.getElementById("code").innerText = roomCode;
-  startGame();
-}
-
-function startGame() {
-  onValue(ref(db, `rooms/${roomCode}/startTime`), snap => {
-    if (!snap.exists()) return;
-    const startTime = snap.val();
-    const tick = () => {
-      const now = Date.now();
-      const timeLeft = Math.max(0, Math.floor((startTime + totalGameTime * 1000 - now) / 1000));
-      document.getElementById("time").innerText = timeLeft;
-      if (timeLeft <= 0 && gameStarted) return endGame();
-      if (!gameStarted && now >= startTime) {
-        gameStarted = true;
-        generateQuestion();
-      }
-      requestAnimationFrame(tick);
-    }
-    tick();
-  });
-
-  onValue(ref(db, `rooms/${roomCode}/players`), snap => {
-    const players = snap.val();
-    let scoreList = "";
-    for (let id in players) {
-      scoreList += `<h4>${players[id].name}: ${players[id].score}</h4>`;
-    }
-    document.getElementById("scores").innerHTML = scoreList;
-  });
-}
-
-function generateQuestion() {
-  const a = Math.floor(Math.random() * 10) + 1;
-  const b = Math.floor(Math.random() * 10) + 1;
-  const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
-  correct = op === "+" ? a + b : op === "-" ? a - b : a * b;
-  document.getElementById("question").innerText = `${a} ${op} ${b} = ?`;
-  let options = [correct];
-  while (options.length < 4) {
-    let wrong = correct + Math.floor(Math.random() * 10 - 5);
-    if (!options.includes(wrong)) options.push(wrong);
-  }
-  options.sort(() => Math.random() - 0.5);
-  document.getElementById("answers").innerHTML = options.map(o => `<button class='btn yellow' onclick='checkAnswer(${o})'>${o}</button>`).join("");
-}
-
-window.checkAnswer = (ans) => {
-  if (ans === correct) score++;
-  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score });
-  generateQuestion();
-}
-
-function endGame() {
-  get(ref(db, `rooms/${roomCode}/players`)).then(snap => {
-    const players = snap.val();
-    let scores = [];
-    for (let id in players) {
-      scores.push({ name: players[id].name, score: players[id].score });
-    }
-    scores.sort((a, b) => b.score - a.score);
-    let winner = scores[0];
-    let message = (winner.name === playerName) ? "Kamu Menang!" : "Kamu Kalah!";
-    document.getElementById("quiz").style.display = "none";
-    document.getElementById("result").style.display = "block";
-    document.getElementById("message").innerText = message;
-  });
-}
-
-  </script>
 </head>
 <body>
-  <div id="start">
-    <h1>Game Matematika Multiplayer</h1>
-    <input id="name" placeholder="Masukkan nama"><br><br>
-    <button onclick="start()" class="btn green">Lanjut</button>
-  </div>  <div id="room">
-    <button onclick="createRoom()" class="btn yellow">Buat Room</button><br><br>
-    <input id="joinCode" placeholder="Kode Room">
-    <button onclick="joinRoom()" class="btn red">Gabung Room</button>
-  </div>  <div id="quiz">
-    <h3>Kode Room: <span id="code"></span></h3>
-    <h2 id="question"></h2>
-    <div id="answers"></div>
-    <h3>Waktu: <span id="time">300</span> detik</h3>
-    <div id="scores"></div>
-  </div>  <div id="result">
-    <h1 id="message"></h1>
-    <button onclick="location.reload()" class="btn green">Main Lagi</button>
-  </div>
-</body>
+  <h1>Game Matematika</h1>  <div id="lobby">
+    <p>Masukkan Nama: <input type="text" id="playerName"></p>
+    <p>Kode Room: <input type="text" id="roomCode"></p>
+    <button onclick="buatRoom()">Buat Room</button>
+    <button onclick="joinRoom()">Gabung Room</button>
+  </div>  <div id="gameArea" class="hidden">
+    <h2 id="roomInfo"></h2>
+    <div id="players"></div>
+    <div id="startGameArea" class="hidden">
+      <button onclick="mulaiGame()">Mulai Game</button>
+    </div>
+    <div id="countdown"></div>
+    <div id="quiz"></div>
+    <div id="chat"></div>
+    <input id="chatInput" placeholder="Ketik pesan...">
+    <button onclick="sendMessage()">Kirim</button>
+    <br><br>
+    <button id="micBtn" onclick="toggleMic()">Nyalakan Mic</button>
+    <audio id="audioStream" autoplay></audio>
+  </div>  <script>
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
+      authDomain: "matematika-game-b3811.firebaseapp.com",
+      databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
+      projectId: "matematika-game-b3811",
+      storageBucket: "matematika-game-b3811.appspot.com",
+      messagingSenderId: "1041108910280",
+      appId: "1:1041108910280:web:0c338c20b17c6e914ba5fd",
+      measurementId: "G-P1T5E6P9YR"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let roomCode = "";
+    let playerName = "";
+    let isHost = false;
+    let micStream = null;
+
+    function buatRoom() {
+      playerName = document.getElementById('playerName').value;
+      roomCode = Math.random().toString(36).substring(2, 7);
+      isHost = true;
+      const roomRef = ref(db, 'rooms/' + roomCode);
+      set(roomRef, {
+        players: {},
+        started: false,
+        chat: []
+      });
+      joinRoom(true);
+    }
+
+    function joinRoom(fromCreate = false) {
+      playerName = document.getElementById('playerName').value;
+      if (!fromCreate) roomCode = document.getElementById('roomCode').value;
+      document.getElementById('lobby').classList.add('hidden');
+      document.getElementById('gameArea').classList.remove('hidden');
+      document.getElementById('roomInfo').innerText = `Room: ${roomCode}`;
+
+      set(ref(db, `rooms/${roomCode}/players/${playerName}`), { score: 0 });
+      onDisconnect(ref(db, `rooms/${roomCode}/players/${playerName}`)).remove();
+
+      if (isHost) {
+        document.getElementById('startGameArea').classList.remove('hidden');
+      }
+
+      onValue(ref(db, `rooms/${roomCode}/players`), (snapshot) => {
+        const playersDiv = document.getElementById('players');
+        playersDiv.innerHTML = '<h3>Pemain:</h3>';
+        const data = snapshot.val();
+        for (const p in data) {
+          playersDiv.innerHTML += `<p>${p} - Skor: ${data[p].score}</p>`;
+        }
+      });
+
+      onValue(ref(db, `rooms/${roomCode}/started`), (snap) => {
+        if (snap.val() === true) startCountdown();
+      });
+
+      onChildAdded(ref(db, `rooms/${roomCode}/chat`), (snapshot) => {
+        const msg = snapshot.val();
+        const chatBox = document.getElementById('chat');
+        const msgEl = document.createElement('div');
+        msgEl.textContent = `${msg.name}: ${msg.text}`;
+        chatBox.appendChild(msgEl);
+      });
+    }
+
+    function mulaiGame() {
+      const startTime = Date.now() + 5000;
+      set(ref(db, `rooms/${roomCode}/startTime`), startTime);
+      set(ref(db, `rooms/${roomCode}/started`), true);
+    }
+
+    function startCountdown() {
+      const countdownDiv = document.getElementById('countdown');
+      let count = 5;
+      const interval = setInterval(() => {
+        countdownDiv.innerText = `Mulai dalam ${count} detik...`;
+        count--;
+        if (count < 0) {
+          clearInterval(interval);
+          countdownDiv.innerText = '';
+          // Panggil startGame() di sini nanti
+        }
+      }, 1000);
+    }
+
+    function sendMessage() {
+      const text = document.getElementById('chatInput').value;
+      const messageRef = push(ref(db, `rooms/${roomCode}/chat`));
+      set(messageRef, { name: playerName, text });
+      document.getElementById('chatInput').value = '';
+    }
+
+    async function toggleMic() {
+      const micBtn = document.getElementById('micBtn');
+      const audioEl = document.getElementById('audioStream');
+      if (!micStream) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioEl.srcObject = micStream;
+          micBtn.textContent = 'Matikan Mic';
+        } catch (e) {
+          alert('Mic tidak diizinkan!');
+        }
+      } else {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
+        micBtn.textContent = 'Nyalakan Mic';
+      }
+    }
+  </script></body>
 </html>
