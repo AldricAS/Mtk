@@ -1,119 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game Matematika Multiplayer</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 50px;
-      background-color: #f0f0f0;
-    }
-    .hidden {
-      display: none;
-    }
-    button {
-      background-color: #FF5733; /* Warna Oranye */
-      border: none;
-      color: white;
-      padding: 15px 32px;
-      text-align: center;
-      font-size: 16px;
-      cursor: pointer;
-      margin: 4px 2px;
-      border-radius: 8px;
-      outline: none;
-      transition: background-color 0.3s ease;
-      z-index: 10;
-    }
-    button:hover {
-      background-color: #FF4500; /* Warna Oranye Lebih Tua */
-    }
-    input {
-      padding: 10px;
-      font-size: 16px;
-      margin: 10px 0;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      width: 80%;
-    }
-    #inputNameDiv {
-      margin-top: 50px;
-    }
-    #gameArea {
-      margin-top: 20px;
-      padding: 20px;
-      background-color: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      display: inline-block;
-      z-index: 5;
-    }
-    #startGameArea {
-      margin-top: 20px;
-    }
-    #countdown {
-      font-size: 30px;
-      font-weight: bold;
-      margin: 20px;
-    }
-    .host-button {
-      background-color: #4CAF50;
-      border: none;
-      color: white;
-      padding: 15px 32px;
-      font-size: 16px;
-      cursor: pointer;
-      margin: 4px 2px;
-      border-radius: 8px;
-    }
-    .host-button:hover {
-      background-color: #45a049;
-    }
-    .mute-button {
-      background-color: #333;
-      color: white;
-      font-size: 16px;
-      padding: 10px 20px;
-      border-radius: 8px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
+    body { font-family: Arial; text-align: center; }
+    #chat { max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-top: 10px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>Game Matematika Multiplayer</h1>
+  <h1>Game Matematika</h1>
 
-  <!-- Input Nama -->
-  <div id="inputNameDiv">
-    <input type="text" id="playerName" placeholder="Masukkan Nama" required>
-    <button id="submitNameBtn">Masukkan Nama</button>
-  </div>
-
-  <!-- Lobby Section -->
-  <div id="lobby" class="hidden">
-    <input type="text" id="roomCode" placeholder="Masukkan Kode Room">
+  <div id="lobby">
+    <p>Masukkan Nama: <input type="text" id="playerName"></p>
+    <p>Kode Room: <input type="text" id="roomCode"></p>
     <button onclick="buatRoom()">Buat Room</button>
     <button onclick="joinRoom()">Gabung Room</button>
   </div>
 
-  <!-- Game Section -->
   <div id="gameArea" class="hidden">
     <h2 id="roomInfo"></h2>
+    <div id="players"></div>
     <div id="startGameArea" class="hidden">
-      <button onclick="mulaiGame()" class="host-button">Mulai Game</button>
+      <button onclick="mulaiGame()">Mulai Game</button>
     </div>
     <div id="countdown"></div>
     <div id="quiz"></div>
-    <button class="mute-button" onclick="toggleMute()">Mute/Unmute Suara</button>
+    <div id="chat"></div>
+    <input id="chatInput" placeholder="Ketik pesan...">
+    <button onclick="sendMessage()">Kirim</button>
+    <br><br>
+    <button id="micBtn" onclick="toggleMic()">Nyalakan Mic</button>
+    <audio id="audioStream" autoplay></audio>
   </div>
 
   <script>
-    // Firebase Configuration
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
     const firebaseConfig = {
       apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
       authDomain: "matematika-game-b3811.firebaseapp.com",
@@ -131,36 +57,23 @@
     let roomCode = "";
     let playerName = "";
     let isHost = false;
-    let isMuted = false; // Default audio is not muted
+    let micStream = null;
 
-    // Event listener untuk tombol Masukkan Nama
-    document.getElementById('submitNameBtn').addEventListener('click', submitName);
-
-    // Fungsi untuk input nama
-    function submitName() {
-      playerName = document.getElementById('playerName').value;
-      if (playerName) {
-        document.getElementById('inputNameDiv').classList.add('hidden');
-        document.getElementById('lobby').classList.remove('hidden');
-      } else {
-        alert('Nama harus diisi!');
-      }
-    }
-
-    // Fungsi untuk membuat room baru
     function buatRoom() {
+      playerName = document.getElementById('playerName').value;
       roomCode = Math.random().toString(36).substring(2, 7);
       isHost = true;
       const roomRef = ref(db, 'rooms/' + roomCode);
       set(roomRef, {
         players: {},
         started: false,
+        chat: []
       });
-      joinRoom(true); // Gabung setelah buat room
+      joinRoom(true);
     }
 
-    // Fungsi untuk gabung ke room yang sudah ada
     function joinRoom(fromCreate = false) {
+      playerName = document.getElementById('playerName').value;
       if (!fromCreate) roomCode = document.getElementById('roomCode').value;
       document.getElementById('lobby').classList.add('hidden');
       document.getElementById('gameArea').classList.remove('hidden');
@@ -172,22 +85,71 @@
       if (isHost) {
         document.getElementById('startGameArea').classList.remove('hidden');
       }
+
+      onValue(ref(db, `rooms/${roomCode}/players`), (snapshot) => {
+        const playersDiv = document.getElementById('players');
+        playersDiv.innerHTML = '<h3>Pemain:</h3>';
+        const data = snapshot.val();
+        for (const p in data) {
+          playersDiv.innerHTML += `<p>${p} - Skor: ${data[p].score}</p>`;
+        }
+      });
+
+      onValue(ref(db, `rooms/${roomCode}/started`), (snap) => {
+        if (snap.val() === true) startCountdown();
+      });
+
+      onChildAdded(ref(db, `rooms/${roomCode}/chat`), (snapshot) => {
+        const msg = snapshot.val();
+        const chatBox = document.getElementById('chat');
+        const msgEl = document.createElement('div');
+        msgEl.textContent = `${msg.name}: ${msg.text}`;
+        chatBox.appendChild(msgEl);
+      });
     }
 
-    // Mulai game
     function mulaiGame() {
       const startTime = Date.now() + 5000;
       set(ref(db, `rooms/${roomCode}/startTime`), startTime);
       set(ref(db, `rooms/${roomCode}/started`), true);
     }
 
-    // Fungsi mute/unmute suara
-    function toggleMute() {
-      isMuted = !isMuted;
-      if (isMuted) {
-        console.log('Suara dimute');
+    function startCountdown() {
+      const countdownDiv = document.getElementById('countdown');
+      let count = 5;
+      const interval = setInterval(() => {
+        countdownDiv.innerText = `Mulai dalam ${count} detik...`;
+        count--;
+        if (count < 0) {
+          clearInterval(interval);
+          countdownDiv.innerText = '';
+          // Panggil startGame() di sini nanti
+        }
+      }, 1000);
+    }
+
+    function sendMessage() {
+      const text = document.getElementById('chatInput').value;
+      const messageRef = push(ref(db, `rooms/${roomCode}/chat`));
+      set(messageRef, { name: playerName, text });
+      document.getElementById('chatInput').value = '';
+    }
+
+    async function toggleMic() {
+      const micBtn = document.getElementById('micBtn');
+      const audioEl = document.getElementById('audioStream');
+      if (!micStream) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioEl.srcObject = micStream;
+          micBtn.textContent = 'Matikan Mic';
+        } catch (e) {
+          alert('Mic tidak diizinkan!');
+        }
       } else {
-        console.log('Suara di-unmute');
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
+        micBtn.textContent = 'Nyalakan Mic';
       }
     }
   </script>
