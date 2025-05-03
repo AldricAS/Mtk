@@ -1,240 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Math Game</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #fff3b0;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        #start-screen {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        #game-screen {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin: 10px;
-            background-color: #ffcc00;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #ffbb00;
-        }
-
-        button:active {
-            background-color: #ff9900;
-        }
-
-        #result-screen {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: rgba(0, 0, 0, 0.6);
-            color: white;
-        }
-
-        #answers button {
-            margin: 5px;
-            padding: 15px;
-            font-size: 20px;
-            background-color: #ffcc00;
-        }
-
-        #answers button:hover {
-            background-color: #ffbb00;
-        }
-
-        #answers button:active {
-            background-color: #ff9900;
-        }
-    </style>
+  <title>Game Matematika</title>
+  <style>
+    body {
+      text-align: center;
+      font-family: sans-serif;
+      background-color: #ffffcc;
+    }
+    #game, #result {
+      display: none;
+    }
+    .btn {
+      padding: 15px;
+      margin: 10px;
+      font-size: 18px;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+    }
+    .red { background-color: #ff4d4d; color: white; }
+    .green { background-color: #66cc66; color: white; }
+    .yellow { background-color: #ffcc00; color: black; }
+  </style>
 </head>
 <body>
-    <div id="start-screen">
-        <h1>Math Game</h1>
-        <input type="text" id="player-name" placeholder="Enter your name">
-        <button id="start-btn">Start Game</button>
-        <button id="multiplayer-btn">Multiplayer</button>
-    </div>
 
-    <div id="game-screen" class="hidden">
-        <div id="timer">Time Left: 300</div>
-        <div id="score">
-            <span id="player-score">Your Score: 0</span>
-            <span id="enemy-score">Enemy Score: 0</span>
-        </div>
-        <div id="question"></div>
-        <div id="answers"></div>
-    </div>
+  <div id="start">
+    <h1>Game Matematika</h1>
+    <input type="text" id="name" placeholder="Masukkan nama"><br><br>
+    <button onclick="startGame()" class="btn green">Mulai</button>
+  </div>
 
-    <div id="result-screen" class="hidden">
-        <h2 id="result-message"></h2>
-        <button id="restart-btn">Play Again</button>
-    </div>
+  <div id="game">
+    <h2 id="username"></h2>
+    <h3 id="timer">Waktu: 300</h3>
+    <h2 id="question">Loading...</h2>
+    <div id="choices"></div>
+    <h3>Skor: <span id="score">0</span></h3>
+  </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
-    <script>
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+  <div id="result">
+    <h2 id="message"></h2>
+    <button onclick="location.reload()" class="btn red">Main Lagi</button>
+  </div>
 
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+  <script>
+    let score = 0;
+    let time = 300;
+    let correctAnswer = 0;
+    let timer;
 
-        let playerName = '';
-        let playerScore = 0;
-        let enemyScore = 0;
-        let timeLeft = 300;
-        let gameOver = false;
+    function startGame() {
+      const name = document.getElementById("name").value.trim();
+      if (!name) return alert("Masukkan nama dulu!");
 
-        const startBtn = document.getElementById('start-btn');
-        const multiplayerBtn = document.getElementById('multiplayer-btn');
-        const playerNameInput = document.getElementById('player-name');
-        const gameScreen = document.getElementById('game-screen');
-        const resultScreen = document.getElementById('result-screen');
-        const questionDiv = document.getElementById('question');
-        const answersDiv = document.getElementById('answers');
-        const timerDiv = document.getElementById('timer');
-        const playerScoreDiv = document.getElementById('player-score');
-        const enemyScoreDiv = document.getElementById('enemy-score');
-        const resultMessage = document.getElementById('result-message');
-        const restartBtn = document.getElementById('restart-btn');
+      document.getElementById("start").style.display = "none";
+      document.getElementById("game").style.display = "block";
+      document.getElementById("username").innerText = "Halo, " + name;
 
-        startBtn.addEventListener('click', startGame);
-        multiplayerBtn.addEventListener('click', enterMultiplayer);
+      generateQuestion();
+      timer = setInterval(() => {
+        time--;
+        document.getElementById("timer").innerText = "Waktu: " + time;
+        if (time <= 0) endGame();
+      }, 1000);
+    }
 
-        restartBtn.addEventListener('click', () => {
-            gameOver = false;
-            playerScore = 0;
-            enemyScore = 0;
-            timeLeft = 300;
-            playerName = '';
-            resultScreen.classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-        });
+    function generateQuestion() {
+      const a = Math.floor(Math.random() * 10) + 1;
+      const b = Math.floor(Math.random() * 10) + 1;
+      const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
+      correctAnswer = op === "+" ? a + b : op === "-" ? a - b : a * b;
 
-        function startGame() {
-            playerName = playerNameInput.value.trim();
-            if (playerName === '') {
-                alert('Please enter your name!');
-                return;
-            }
+      document.getElementById("question").innerText = `${a} ${op} ${b} = ?`;
 
-            document.getElementById('start-screen').classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            generateQuestion();
-            startTimer();
-        }
+      let options = [correctAnswer];
+      while (options.length < 4) {
+        let wrong = correctAnswer + Math.floor(Math.random() * 10 - 5);
+        if (!options.includes(wrong)) options.push(wrong);
+      }
 
-        function generateQuestion() {
-            const num1 = Math.floor(Math.random() * 10) + 1;
-            const num2 = Math.floor(Math.random() * 10) + 1;
-            const correctAnswer = num1 + num2;
-            const wrongAnswer1 = correctAnswer + Math.floor(Math.random() * 5) + 1;
-            const wrongAnswer2 = correctAnswer - Math.floor(Math.random() * 5) - 1;
-            const wrongAnswer3 = Math.floor(Math.random() * 20);
+      options.sort(() => Math.random() - 0.5);
+      document.getElementById("choices").innerHTML = options.map(opt =>
+        `<button class="btn yellow" onclick="checkAnswer(${opt})">${opt}</button>`
+      ).join("");
+    }
 
-            const answers = [correctAnswer, wrongAnswer1, wrongAnswer2, wrongAnswer3];
-            answers.sort(() => Math.random() - 0.5);
+    function checkAnswer(ans) {
+      if (ans === correctAnswer) score++;
+      document.getElementById("score").innerText = score;
+      generateQuestion();
+    }
 
-            questionDiv.innerHTML = `${num1} + ${num2} = ?`;
-
-            answersDiv.innerHTML = answers.map((answer, index) => {
-                return `<button class="answer-btn" onclick="checkAnswer(${answer})">${answer}</button>`;
-            }).join('');
-        }
-
-        function checkAnswer(selectedAnswer) {
-            const correctAnswer = parseInt(questionDiv.innerHTML.split('=')[0].split('+')[0].trim()) +
-                                  parseInt(questionDiv.innerHTML.split('=')[0].split('+')[1].trim());
-
-            if (selectedAnswer === correctAnswer) {
-                playerScore++;
-            } else {
-                enemyScore++;
-            }
-
-            playerScoreDiv.innerHTML = `Your Score: ${playerScore}`;
-            enemyScoreDiv.innerHTML = `Enemy Score: ${enemyScore}`;
-
-            if (playerScore >= 10 || enemyScore >= 10) {
-                endGame(playerScore >= 10 ? 'win' : 'lose');
-            } else {
-                generateQuestion();
-            }
-        }
-
-        function startTimer() {
-            const timerInterval = setInterval(() => {
-                if (timeLeft <= 0 || gameOver) {
-                    clearInterval(timerInterval);
-                    endGame(playerScore > enemyScore ? 'win' : 'lose');
-                } else {
-                    timeLeft--;
-                    timerDiv.innerHTML = `Time Left: ${timeLeft}`;
-                }
-            }, 1000);
-        }
-
-        function endGame(result) {
-            gameOver = true;
-            resultMessage.innerText = result === 'win' ? 'You Win!' : 'You Lose!';
-            resultScreen.classList.remove('hidden');
-            gameScreen.classList.add('hidden');
-            playResultSound(result);
-        }
-
-        function playResultSound(result) {
-            const winSound = new Audio('win.mp3');
-            const loseSound = new Audio('lose.mp3');
-            const drawSound = new Audio('draw.mp3');
-
-            if (result === 'win') {
-                winSound.play();
-            } else if (result === 'lose') {
-                loseSound.play();
-            } else {
-                drawSound.play();
-            }
-        }
-
-        function enterMultiplayer() {
-            // Setup multiplayer code handling here
-            alert("Multiplayer is not implemented in this version.");
-        }
-    </script>
+    function endGame() {
+      clearInterval(timer);
+      document.getElementById("game").style.display = "none";
+      document.getElementById("result").style.display = "block";
+      document.getElementById("message").innerText = score >= 10 ? "Menang!" : "Waktu Habis. Skor kamu: " + score;
+    }
+  </script>
 </body>
 </html>
