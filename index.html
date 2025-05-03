@@ -1,4 +1,5 @@
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html>
 <head>
   <title>Game Matematika Multiplayer</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
@@ -7,15 +8,41 @@
     body { font-family: Arial; text-align: center; }
     #chat { max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-top: 10px; }
     .hidden { display: none; }
+    button { 
+      background-color: #4CAF50; /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #micBtn {
+      background-color: #2196F3; /* Blue */
+    }
+    #micBtn:hover {
+      background-color: #0b7dda;
+    }
   </style>
 </head>
 <body>
-  <h1>Game Matematika</h1>  <div id="lobby">
+  <h1>Game Matematika</h1>
+
+  <div id="lobby">
     <p>Masukkan Nama: <input type="text" id="playerName"></p>
     <p>Kode Room: <input type="text" id="roomCode"></p>
     <button onclick="buatRoom()">Buat Room</button>
     <button onclick="joinRoom()">Gabung Room</button>
-  </div>  <div id="gameArea" class="hidden">
+  </div>
+
+  <div id="gameArea" class="hidden">
     <h2 id="roomInfo"></h2>
     <div id="players"></div>
     <div id="startGameArea" class="hidden">
@@ -29,7 +56,9 @@
     <br><br>
     <button id="micBtn" onclick="toggleMic()">Nyalakan Mic</button>
     <audio id="audioStream" autoplay></audio>
-  </div>  <script>
+  </div>
+
+  <script>
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
     import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
@@ -116,7 +145,6 @@
         if (count < 0) {
           clearInterval(interval);
           countdownDiv.innerText = '';
-          // Panggil startGame() di sini nanti
         }
       }, 1000);
     }
@@ -145,5 +173,6 @@
         micBtn.textContent = 'Nyalakan Mic';
       }
     }
-  </script></body>
+  </script>
+</body>
 </html>
