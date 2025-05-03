@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz Matematika Multiplayer</title>
+  <script type="module">
+    // Firebase config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";const firebaseConfig = {
+  apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
+  authDomain: "matematika-game-b3811.firebaseapp.com",
+  databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
+  projectId: "matematika-game-b3811",
+  storageBucket: "matematika-game-b3811.firebasestorage.app",
+  messagingSenderId: "1041108910280",
+  appId: "1:1041108910280:web:0c338c20b17c6e914ba5fd",
+  measurementId: "G-P1T5E6P9YR"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let roomCode = "";
+let current = 0;
+let questions = [];
+
+function randomCode() {
+  return Math.random().toString(36).substr(2, 5).toUpperCase();
+}
+
+window.createRoom = () => {
+  roomCode = randomCode();
+  questions = [
+    { q: "5 + 3 = ?", a: 8 },
+    { q: "10 - 4 = ?", a: 6 },
+    { q: "2 x 3 = ?", a: 6 }
+  ];
+  set(ref(db, 'rooms/' + roomCode), {
+    questions
+  }).then(() => {
+    alert("Room dibuat: " + roomCode);
+    startGame();
+  });
+};
+
+window.joinRoom = () => {
+  roomCode = document.getElementById("roomCode").value.toUpperCase();
+  get(ref(db, 'rooms/' + roomCode)).then(snapshot => {
+    if (snapshot.exists()) {
+      questions = snapshot.val().questions;
+      alert("Gabung ke room: " + roomCode);
+      startGame();
+    } else {
+      alert("Room tidak ditemukan.");
+    }
+  });
+};
+
+function startGame() {
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("multiplayerMenu").style.display = "none";
+  document.getElementById("quiz").style.display = "block";
+  current = 0;
+  showQuestion();
+}
+
+window.showQuestion = () => {
+  const q = questions[current];
+  document.getElementById("question").innerText = q.q;
+
+  let correct = q.a;
+  let options = [correct];
+
+  while (options.length < 3) {
+    let wrong = correct + Math.floor(Math.random() * 5) - 2;
+    if (!options.includes(wrong) && wrong >= 0) options.push(wrong);
+  }
+
+  options.sort(() => Math.random() - 0.5);
+  const colors = ["yellow", "red", "green"];
+  document.getElementById("options").innerHTML = "";
+
+  options.forEach((opt, i) => {
+    const btn = document.createElement("div");
+    btn.className = `option ${colors[i]}`;
+    btn.innerText = opt;
+    btn.onclick = () => {
+      if (opt === correct) {
+        document.getElementById("correctSound").play();
+        alert("Benar!");
+      } else {
+        document.getElementById("wrongSound").play();
+        alert("Salah!");
+      }
+
+      current++;
+      if (current < questions.length) showQuestion();
+      else alert("Selesai!");
+    };
+    document.getElementById("options").appendChild(btn);
+  });
+};
+
+  </script>  <style>
+    body { font-family: Arial; background: #fef9e7; text-align: center; margin: 0; padding: 0; }
+    .container { padding: 50px 20px; }
+    .question { font-size: 2em; margin-bottom: 30px; }
+    .options { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+    .option { border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; color: white; cursor: pointer; transition: transform 0.2s; }
+    .option:hover { transform: scale(1.1); }
+    .yellow { background-color: #f1c40f; }
+    .red { background-color: #e74c3c; }
+    .green { background-color: #2ecc71; }
+    button { margin: 10px; padding: 10px 20px; font-size: 1em; }
+  </style></head>
+<body>
+  <div class="container">
+    <div id="menu">
+      <h1>Pilih Mode</h1>
+      <button onclick="createRoom()">Buat Room</button>
+      <button onclick="document.getElementById('multiplayerMenu').style.display='block'">Gabung Room</button>
+    </div><div id="multiplayerMenu" style="display:none">
+  <input id="roomCode" placeholder="Kode Room">
+  <button onclick="joinRoom()">Gabung</button>
+</div>
+
+<div id="quiz" style="display:none">
+  <div class="question" id="question"></div>
+  <div class="options" id="options"></div>
+</div>
+
+  </div><audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-09.mp3"></audio> <audio id="wrongSound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
+
+</body>
+</html>
