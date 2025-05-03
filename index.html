@@ -1,31 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game Matematika Multiplayer</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
   <style>
-    body { font-family: Arial; text-align: center; }
-    #chat { max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-top: 10px; }
+    body { font-family: Arial, sans-serif; text-align: center; }
     .hidden { display: none; }
+    #gameArea { margin-top: 20px; }
     button { 
-      background-color: #4CAF50; /* Green */
-      border: none;
-      color: white;
-      padding: 15px 32px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 16px;
-      margin: 4px 2px;
-      cursor: pointer;
-      border-radius: 8px;
+      background-color: #4CAF50; 
+      border: none; 
+      color: white; 
+      padding: 15px 32px; 
+      text-align: center; 
+      font-size: 16px; 
+      cursor: pointer; 
+      margin: 4px 2px; 
+      border-radius: 8px; 
     }
     button:hover {
       background-color: #45a049;
     }
     #micBtn {
-      background-color: #2196F3; /* Blue */
+      background-color: #2196F3;
     }
     #micBtn:hover {
       background-color: #0b7dda;
@@ -33,15 +33,17 @@
   </style>
 </head>
 <body>
-  <h1>Game Matematika</h1>
+  <h1>Game Matematika Multiplayer</h1>
 
+  <!-- Lobby Section -->
   <div id="lobby">
-    <p>Masukkan Nama: <input type="text" id="playerName"></p>
-    <p>Kode Room: <input type="text" id="roomCode"></p>
+    <input type="text" id="playerName" placeholder="Masukkan Nama">
+    <input type="text" id="roomCode" placeholder="Masukkan Kode Room">
     <button onclick="buatRoom()">Buat Room</button>
     <button onclick="joinRoom()">Gabung Room</button>
   </div>
 
+  <!-- Game Section -->
   <div id="gameArea" class="hidden">
     <h2 id="roomInfo"></h2>
     <div id="players"></div>
@@ -59,9 +61,7 @@
   </div>
 
   <script>
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-
+    // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
       authDomain: "matematika-game-b3811.firebaseapp.com",
@@ -81,6 +81,7 @@
     let isHost = false;
     let micStream = null;
 
+    // Fungsi untuk membuat room baru
     function buatRoom() {
       playerName = document.getElementById('playerName').value;
       roomCode = Math.random().toString(36).substring(2, 7);
@@ -91,9 +92,10 @@
         started: false,
         chat: []
       });
-      joinRoom(true);
+      joinRoom(true); // Gabung setelah buat room
     }
 
+    // Fungsi untuk gabung ke room yang sudah ada
     function joinRoom(fromCreate = false) {
       playerName = document.getElementById('playerName').value;
       if (!fromCreate) roomCode = document.getElementById('roomCode').value;
@@ -130,12 +132,14 @@
       });
     }
 
+    // Mulai game setelah countdown
     function mulaiGame() {
       const startTime = Date.now() + 5000;
       set(ref(db, `rooms/${roomCode}/startTime`), startTime);
       set(ref(db, `rooms/${roomCode}/started`), true);
     }
 
+    // Hitung mundur sebelum game dimulai
     function startCountdown() {
       const countdownDiv = document.getElementById('countdown');
       let count = 5;
@@ -149,6 +153,7 @@
       }, 1000);
     }
 
+    // Kirim pesan di chat
     function sendMessage() {
       const text = document.getElementById('chatInput').value;
       const messageRef = push(ref(db, `rooms/${roomCode}/chat`));
@@ -156,6 +161,7 @@
       document.getElementById('chatInput').value = '';
     }
 
+    // Fungsi untuk toggle mic
     async function toggleMic() {
       const micBtn = document.getElementById('micBtn');
       const audioEl = document.getElementById('audioStream');
