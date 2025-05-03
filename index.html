@@ -7,32 +7,85 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    .hidden { display: none; }
-    #gameArea { margin-top: 20px; }
-    button { 
-      background-color: #4CAF50; 
-      border: none; 
-      color: white; 
-      padding: 15px 32px; 
-      text-align: center; 
-      font-size: 16px; 
-      cursor: pointer; 
-      margin: 4px 2px; 
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+      background-color: #f0f0f0;
+    }
+    .hidden {
+      display: none;
+    }
+    button {
+      background-color: #FF5733; /* Warna Oranye */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 4px 2px;
       border-radius: 8px;
       outline: none;
+      transition: background-color 0.3s ease;
     }
     button:hover {
-      background-color: #45a049;
+      background-color: #FF4500; /* Warna Oranye Lebih Tua */
     }
-    #micBtn {
-      background-color: #2196F3;
-    }
-    #micBtn:hover {
-      background-color: #0b7dda;
+    input {
+      padding: 10px;
+      font-size: 16px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 80%;
     }
     #inputNameDiv {
       margin-top: 50px;
+    }
+    #gameArea {
+      margin-top: 20px;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      display: inline-block;
+    }
+    #chat {
+      margin-top: 20px;
+      background-color: #ffffff;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #chatInput {
+      width: 80%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .message {
+      background-color: #f2f2f2;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    .host-button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 4px 2px;
+      border-radius: 8px;
+    }
+    .host-button:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
@@ -42,7 +95,7 @@
   <!-- Input Nama -->
   <div id="inputNameDiv">
     <input type="text" id="playerName" placeholder="Masukkan Nama" required>
-    <button id="submitNameBtn" onclick="submitName()">Masukkan Nama</button>
+    <button id="submitNameBtn">Masukkan Nama</button>
   </div>
 
   <!-- Lobby Section -->
@@ -57,16 +110,13 @@
     <h2 id="roomInfo"></h2>
     <div id="players"></div>
     <div id="startGameArea" class="hidden">
-      <button onclick="mulaiGame()">Mulai Game</button>
+      <button onclick="mulaiGame()" class="host-button">Mulai Game</button>
     </div>
     <div id="countdown"></div>
     <div id="quiz"></div>
     <div id="chat"></div>
     <input id="chatInput" placeholder="Ketik pesan...">
     <button onclick="sendMessage()">Kirim</button>
-    <br><br>
-    <button id="micBtn" onclick="toggleMic()">Nyalakan Mic</button>
-    <audio id="audioStream" autoplay></audio>
   </div>
 
   <script>
@@ -88,7 +138,9 @@
     let roomCode = "";
     let playerName = "";
     let isHost = false;
-    let micStream = null;
+
+    // Event listener untuk tombol Masukkan Nama
+    document.getElementById('submitNameBtn').addEventListener('click', submitName);
 
     // Fungsi untuk input nama
     function submitName() {
@@ -136,39 +188,13 @@
           playersDiv.innerHTML += `<p>${p} - Skor: ${data[p].score}</p>`;
         }
       });
-
-      onValue(ref(db, `rooms/${roomCode}/started`), (snap) => {
-        if (snap.val() === true) startCountdown();
-      });
-
-      onChildAdded(ref(db, `rooms/${roomCode}/chat`), (snapshot) => {
-        const msg = snapshot.val();
-        const chatBox = document.getElementById('chat');
-        const msgEl = document.createElement('div');
-        msgEl.textContent = `${msg.name}: ${msg.text}`;
-        chatBox.appendChild(msgEl);
-      });
     }
 
-    // Mulai game setelah countdown
+    // Mulai game
     function mulaiGame() {
       const startTime = Date.now() + 5000;
       set(ref(db, `rooms/${roomCode}/startTime`), startTime);
       set(ref(db, `rooms/${roomCode}/started`), true);
-    }
-
-    // Hitung mundur sebelum game dimulai
-    function startCountdown() {
-      const countdownDiv = document.getElementById('countdown');
-      let count = 5;
-      const interval = setInterval(() => {
-        countdownDiv.innerText = `Mulai dalam ${count} detik...`;
-        count--;
-        if (count < 0) {
-          clearInterval(interval);
-          countdownDiv.innerText = '';
-        }
-      }, 1000);
     }
 
     // Kirim pesan di chat
@@ -177,25 +203,6 @@
       const messageRef = push(ref(db, `rooms/${roomCode}/chat`));
       set(messageRef, { name: playerName, text });
       document.getElementById('chatInput').value = '';
-    }
-
-    // Fungsi untuk toggle mic
-    async function toggleMic() {
-      const micBtn = document.getElementById('micBtn');
-      const audioEl = document.getElementById('audioStream');
-      if (!micStream) {
-        try {
-          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          audioEl.srcObject = micStream;
-          micBtn.textContent = 'Matikan Mic';
-        } catch (e) {
-          alert('Mic tidak diizinkan!');
-        }
-      } else {
-        micStream.getTracks().forEach(track => track.stop());
-        micStream = null;
-        micBtn.textContent = 'Nyalakan Mic';
-      }
     }
   </script>
 </body>
