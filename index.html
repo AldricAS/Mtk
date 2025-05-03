@@ -11,7 +11,7 @@
   </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, update, push, child } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
+    import { getDatabase, ref, set, get, onValue, update, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
   apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
   authDomain: "matematika-game-b3811.firebaseapp.com",
   databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
@@ -30,8 +30,9 @@ let playerId = "";
 let roomCode = "";
 let score = 0;
 let correct = 0;
-let totalTime = 300;
 let timer;
+let totalGameTime = 300; // 5 menit
+let gameStarted = false;
 
 window.start = () => {
   playerName = document.getElementById("name").value.trim();
@@ -45,6 +46,8 @@ window.createRoom = () => {
   const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
   playerId = newPlayerRef.key;
   set(newPlayerRef, { name: playerName, score: 0 });
+  const now = Date.now();
+  set(ref(db, `rooms/${roomCode}/startTime`), now + 5000); // mulai 5 detik lagi
   set(ref(db, `rooms/${roomCode}/status`), "waiting");
   showQuiz();
 }
@@ -70,12 +73,23 @@ function showQuiz() {
 }
 
 function startGame() {
-  timer = setInterval(() => {
-    totalTime--;
-    document.getElementById("time").innerText = totalTime;
-    if (totalTime <= 0) endGame();
-  }, 1000);
-  generateQuestion();
+  onValue(ref(db, `rooms/${roomCode}/startTime`), snap => {
+    if (!snap.exists()) return;
+    const startTime = snap.val();
+    const tick = () => {
+      const now = Date.now();
+      const timeLeft = Math.max(0, Math.floor((startTime + totalGameTime * 1000 - now) / 1000));
+      document.getElementById("time").innerText = timeLeft;
+      if (timeLeft <= 0 && gameStarted) return endGame();
+      if (!gameStarted && now >= startTime) {
+        gameStarted = true;
+        generateQuestion();
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+  });
+
   onValue(ref(db, `rooms/${roomCode}/players`), snap => {
     const players = snap.val();
     let scoreList = "";
@@ -108,7 +122,6 @@ window.checkAnswer = (ans) => {
 }
 
 function endGame() {
-  clearInterval(timer);
   get(ref(db, `rooms/${roomCode}/players`)).then(snap => {
     const players = snap.val();
     let scores = [];
