@@ -30,14 +30,22 @@
     #micBtn:hover {
       background-color: #0b7dda;
     }
+    #inputNameDiv {
+      margin-top: 50px;
+    }
   </style>
 </head>
 <body>
   <h1>Game Matematika Multiplayer</h1>
 
+  <!-- Input Nama -->
+  <div id="inputNameDiv">
+    <input type="text" id="playerName" placeholder="Masukkan Nama" required>
+    <button onclick="submitName()">Masukkan Nama</button>
+  </div>
+
   <!-- Lobby Section -->
-  <div id="lobby">
-    <input type="text" id="playerName" placeholder="Masukkan Nama">
+  <div id="lobby" class="hidden">
     <input type="text" id="roomCode" placeholder="Masukkan Kode Room">
     <button onclick="buatRoom()">Buat Room</button>
     <button onclick="joinRoom()">Gabung Room</button>
@@ -81,9 +89,19 @@
     let isHost = false;
     let micStream = null;
 
+    // Fungsi untuk input nama
+    function submitName() {
+      playerName = document.getElementById('playerName').value;
+      if (playerName) {
+        document.getElementById('inputNameDiv').classList.add('hidden');
+        document.getElementById('lobby').classList.remove('hidden');
+      } else {
+        alert('Nama harus diisi!');
+      }
+    }
+
     // Fungsi untuk membuat room baru
     function buatRoom() {
-      playerName = document.getElementById('playerName').value;
       roomCode = Math.random().toString(36).substring(2, 7);
       isHost = true;
       const roomRef = ref(db, 'rooms/' + roomCode);
@@ -97,7 +115,6 @@
 
     // Fungsi untuk gabung ke room yang sudah ada
     function joinRoom(fromCreate = false) {
-      playerName = document.getElementById('playerName').value;
       if (!fromCreate) roomCode = document.getElementById('roomCode').value;
       document.getElementById('lobby').classList.add('hidden');
       document.getElementById('gameArea').classList.remove('hidden');
