@@ -3,9 +3,8 @@
   <meta charset="UTF-8">
   <title>Quiz Matematika Multiplayer</title>
   <script type="module">
-    // Firebase config
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";const firebaseConfig = {
+    import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";const firebaseConfig = {
   apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
   authDomain: "matematika-game-b3811.firebaseapp.com",
   databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
@@ -20,8 +19,10 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let roomCode = "";
+let playerId = Math.random().toString(36).substring(2, 8);
 let current = 0;
 let questions = [];
+let score = 0;
 
 function randomCode() {
   return Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -30,12 +31,17 @@ function randomCode() {
 window.createRoom = () => {
   roomCode = randomCode();
   questions = [
-    { q: "5 + 3 = ?", a: 8 },
-    { q: "10 - 4 = ?", a: 6 },
-    { q: "2 x 3 = ?", a: 6 }
+    { q: "3 + 5", a: 8 }, { q: "10 - 2", a: 8 }, { q: "4 × 3", a: 12 },
+    { q: "7 + 2", a: 9 }, { q: "9 - 4", a: 5 }, { q: "5 × 2", a: 10 },
+    { q: "6 + 3", a: 9 }, { q: "8 - 1", a: 7 }, { q: "2 × 6", a: 12 },
+    { q: "4 + 4", a: 8 }, { q: "7 - 3", a: 4 }, { q: "3 × 5", a: 15 },
+    { q: "2 + 9", a: 11 }, { q: "10 - 7", a: 3 }, { q: "6 × 2", a: 12 }
   ];
   set(ref(db, 'rooms/' + roomCode), {
-    questions
+    questions,
+    players: {
+      [playerId]: { score: 0 }
+    }
   }).then(() => {
     alert("Room dibuat: " + roomCode);
     startGame();
@@ -46,20 +52,44 @@ window.joinRoom = () => {
   roomCode = document.getElementById("roomCode").value.toUpperCase();
   get(ref(db, 'rooms/' + roomCode)).then(snapshot => {
     if (snapshot.exists()) {
-      questions = snapshot.val().questions;
-      alert("Gabung ke room: " + roomCode);
-      startGame();
+      const data = snapshot.val();
+      questions = data.questions;
+      const updates = {};
+      updates['rooms/' + roomCode + '/players/' + playerId] = { score: 0 };
+      update(ref(db), updates).then(() => {
+        alert("Gabung ke room: " + roomCode);
+        startGame();
+      });
     } else {
       alert("Room tidak ditemukan.");
     }
   });
 };
 
+function updateScore() {
+  update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score });
+}
+
+function listenScores() {
+  const scoreBoard = document.getElementById("scores");
+  onValue(ref(db, `rooms/${roomCode}/players`), snapshot => {
+    const data = snapshot.val();
+    let html = "";
+    for (let id in data) {
+      const isMe = id === playerId ? "(Kamu)" : "";
+      html += `<div>${id}: ${data[id].score} ${isMe}</div>`;
+    }
+    scoreBoard.innerHTML = html;
+  });
+}
+
 function startGame() {
   document.getElementById("menu").style.display = "none";
   document.getElementById("multiplayerMenu").style.display = "none";
   document.getElementById("quiz").style.display = "block";
   current = 0;
+  score = 0;
+  listenScores();
   showQuestion();
 }
 
@@ -86,6 +116,8 @@ window.showQuestion = () => {
     btn.onclick = () => {
       if (opt === correct) {
         document.getElementById("correctSound").play();
+        score++;
+        updateScore();
         alert("Benar!");
       } else {
         document.getElementById("wrongSound").play();
@@ -94,7 +126,7 @@ window.showQuestion = () => {
 
       current++;
       if (current < questions.length) showQuestion();
-      else alert("Selesai!");
+      else alert("Selesai! Skormu: " + score);
     };
     document.getElementById("options").appendChild(btn);
   });
@@ -111,6 +143,7 @@ window.showQuestion = () => {
     .red { background-color: #e74c3c; }
     .green { background-color: #2ecc71; }
     button { margin: 10px; padding: 10px 20px; font-size: 1em; }
+    #scores { margin-top: 20px; font-size: 1.2em; background: #fff; padding: 10px; border-radius: 10px; display: inline-block; }
   </style></head>
 <body>
   <div class="container">
@@ -126,6 +159,7 @@ window.showQuestion = () => {
 <div id="quiz" style="display:none">
   <div class="question" id="question"></div>
   <div class="options" id="options"></div>
+  <div id="scores"></div>
 </div>
 
   </div><audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-09.mp3"></audio> <audio id="wrongSound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
