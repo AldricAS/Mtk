@@ -7,7 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; }
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
     .hidden { display: none; }
     #gameArea { margin-top: 20px; }
     button { 
@@ -19,7 +19,8 @@
       font-size: 16px; 
       cursor: pointer; 
       margin: 4px 2px; 
-      border-radius: 8px; 
+      border-radius: 8px;
+      outline: none;
     }
     button:hover {
       background-color: #45a049;
@@ -41,7 +42,7 @@
   <!-- Input Nama -->
   <div id="inputNameDiv">
     <input type="text" id="playerName" placeholder="Masukkan Nama" required>
-    <button onclick="submitName()">Masukkan Nama</button>
+    <button id="submitNameBtn" onclick="submitName()">Masukkan Nama</button>
   </div>
 
   <!-- Lobby Section -->
