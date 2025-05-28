@@ -1,225 +1,133 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Game Matematika Multiplayer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game Matematika + Chat</title>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #ffffcc; }
-    .btn { padding: 10px 20px; margin: 10px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; }
-    .green { background: #66cc66; color: white; }
-    .red { background: #ff4d4d; color: white; }
-    .yellow { background: #ffcc00; color: black; }
-    #game, #room, #quiz, #result { display: none; }
-
-    #chat-container {
-      width: 80%;
-      max-width: 300px;
-      margin: 10px auto;
-      text-align: left;
-      display: none;
+    body {
+      background-color: #f0f8ff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
     }
-    #messages {
-      height: 80px;
-      overflow-y: auto;
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+    }
+    #question {
+      font-size: 20px;
+      margin: 20px;
+    }
+    #chatBox {
+      width: 100%;
+      max-width: 400px;
+      margin: 30px auto;
+      background: #fff;
       border: 1px solid #ccc;
-      background: #f0f0f0;
-      font-size: 10px;
-      padding: 4px;
-      border-radius: 6px;
+      padding: 10px;
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
     }
-    .chat-message {
-      margin: 2px 0;
-      padding: 4px;
-      background: #e0e0e0;
-      border-radius: 6px;
-      font-size: 10px;
-    }
-    #chat-input {
-      width: 70%;
-      font-size: 10px;
-      padding: 4px;
+    #footer {
+      margin-top: 30px;
+      font-size: 13px;
+      color: #777;
     }
   </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, update, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+</head>
+<body>
+  <h1>Game Matematika</h1>
+  <input id="name" placeholder="Nama kamu" /><br>
+  <div id="question"></div>
+  <input id="answer" type="number" placeholder="Jawaban" />
+  <button id="submitBtn">Kirim</button>
 
+  <h2>Chat</h2>
+  <div id="chatBox"></div>
+  <input id="chatInput" placeholder="Ketik pesan..." />
+  <button id="sendChat">Kirim Pesan</button>
+
+  <div id="footer">© 2025-2028 AldricAS • Do not distribute</div>
+
+  <script type="module">
+    // Import Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // Firebase config
     const firebaseConfig = {
-      apiKey: "AIzaSyAyudZ0Mx_amH39uJuSNOXQqczW_QK2oog",
-  authDomain: "game-matematika-1e831.firebaseapp.com",
-  projectId: "game-matematika-1e831",
-  storageBucket: "game-matematika-1e831.firebasestorage.app",
-  messagingSenderId: "872173762851",
-  appId: "1:872173762851:web:a8fbd150d247e00722f496",
-  measurementId: "G-Q0RZBVW9XY"
+      apiKey: "AIzaSyB-q_Ab78uPp_c-sPvlOKvaKzYi3DH7RAw",
+      authDomain: "matematika-game-b3811.firebaseapp.com",
+      databaseURL: "https://matematika-game-b3811-default-rtdb.firebaseio.com",
+      projectId: "matematika-game-b3811",
+      storageBucket: "matematika-game-b3811.firebasestorage.app",
+      messagingSenderId: "1041108910280",
+      appId: "1:1041108910280:web:0c338c20b17c6e914ba5fd",
+      measurementId: "G-P1T5E6P9YR"
     };
 
+    // Inisialisasi Firebase
     const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
     const db = getDatabase(app);
 
-    let playerName = "";
-    let playerId = "";
-    let roomCode = "";
-    let score = 0;
-    let correct = 0;
-    let gameStarted = false;
-
-    window.start = () => {
-      playerName = document.getElementById("name").value.trim();
-      if (!playerName) return alert("Masukkan nama dulu!");
-      document.getElementById("start").style.display = "none";
-      document.getElementById("room").style.display = "block";
-    }
-
-    window.createRoom = () => {
-      roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-      const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
-      playerId = newPlayerRef.key;
-      set(newPlayerRef, { name: playerName, score: 0 });
-      const now = Date.now();
-      set(ref(db, `rooms/${roomCode}/startTime`), now + 5000);
-      set(ref(db, `rooms/${roomCode}/status`), "waiting");
-      showQuiz();
-    }
-
-    window.joinRoom = () => {
-      const code = document.getElementById("joinCode").value;
-      get(ref(db, `rooms/${code}`)).then(snapshot => {
-        if (snapshot.exists()) {
-          roomCode = code;
-          const newPlayerRef = push(ref(db, `rooms/${roomCode}/players`));
-          playerId = newPlayerRef.key;
-          set(newPlayerRef, { name: playerName, score: 0 });
-          showQuiz();
-        } else alert("Kode room tidak ditemukan!");
-      });
-    }
-
-    function showQuiz() {
-      document.getElementById("room").style.display = "none";
-      document.getElementById("quiz").style.display = "block";
-      document.getElementById("chat-container").style.display = "block";
-      document.getElementById("code").innerText = roomCode;
-      startGame();
-
-      // Listener chat
-      onChildAdded(ref(db, `rooms/${roomCode}/chat`), (data) => {
-        const message = data.val();
-        const msgElem = document.createElement("div");
-        msgElem.className = "chat-message";
-        msgElem.innerHTML = `<strong>${message.player}:</strong> ${message.message}`;
-        document.getElementById("messages").appendChild(msgElem);
-        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
-      });
-    }
-
-    function startGame() {
-      onValue(ref(db, `rooms/${roomCode}/startTime`), snap => {
-        if (!snap.exists()) return;
-        const startTime = snap.val();
-        const tick = () => {
-          const now = Date.now();
-          const timeLeft = Math.max(0, Math.floor((startTime + 300000 - now) / 1000));
-          document.getElementById("time").innerText = timeLeft;
-          if (timeLeft <= 0 && gameStarted) return endGame();
-          if (!gameStarted && now >= startTime) {
-            gameStarted = true;
-            generateQuestion();
-          }
-          requestAnimationFrame(tick);
-        }
-        tick();
-      });
-
-      onValue(ref(db, `rooms/${roomCode}/players`), snap => {
-        const players = snap.val();
-        let scoreList = "";
-        for (let id in players) {
-          scoreList += `<h4>${players[id].name}: ${players[id].score}</h4>`;
-        }
-        document.getElementById("scores").innerHTML = scoreList;
-      });
-    }
-
+    // Game Matematika
     function generateQuestion() {
       const a = Math.floor(Math.random() * 10) + 1;
       const b = Math.floor(Math.random() * 10) + 1;
-      const op = ["+", "-", "×"][Math.floor(Math.random() * 3)];
-      correct = op === "+" ? a + b : op === "-" ? a - b : a * b;
-      document.getElementById("question").innerText = `${a} ${op} ${b} = ?`;
-      let options = [correct];
-      while (options.length < 4) {
-        let wrong = correct + Math.floor(Math.random() * 10 - 5);
-        if (!options.includes(wrong)) options.push(wrong);
+      document.getElementById("question").textContent = `Berapakah ${a} + ${b}?`;
+      return a + b;
+    }
+
+    let correctAnswer = generateQuestion();
+
+    document.getElementById("submitBtn").onclick = () => {
+      const answer = parseInt(document.getElementById("answer").value);
+      const name = document.getElementById("name").value || "Anonim";
+      if (answer === correctAnswer) {
+        alert("Benar!");
+        push(ref(db, "scores"), {
+          name: name,
+          score: 1,
+          timestamp: Date.now()
+        });
+      } else {
+        alert("Salah, coba lagi!");
       }
-      options.sort(() => Math.random() - 0.5);
-      document.getElementById("answers").innerHTML = options.map(o => `<button class='btn yellow' onclick='checkAnswer(${o})'>${o}</button>`).join("");
-    }
+      correctAnswer = generateQuestion();
+      document.getElementById("answer").value = "";
+    };
 
-    window.checkAnswer = (ans) => {
-      if (ans === correct) score++;
-      update(ref(db, `rooms/${roomCode}/players/${playerId}`), { score });
-      generateQuestion();
-    }
+    // Chat
+    const chatBox = document.getElementById("chatBox");
+    const chatInput = document.getElementById("chatInput");
 
-    function endGame() {
-      get(ref(db, `rooms/${roomCode}/players`)).then(snap => {
-        const players = snap.val();
-        let scores = [];
-        for (let id in players) {
-          scores.push({ name: players[id].name, score: players[id].score });
-        }
-        scores.sort((a, b) => b.score - a.score);
-        let winner = scores[0];
-        let message = (winner.name === playerName) ? "Kamu Menang!" : "Kamu Kalah!";
-        document.getElementById("quiz").style.display = "none";
-        document.getElementById("chat-container").style.display = "none";
-        document.getElementById("result").style.display = "block";
-        document.getElementById("message").innerText = message;
+    document.getElementById("sendChat").onclick = () => {
+      const name = document.getElementById("name").value || "Anonim";
+      const message = chatInput.value;
+      if (message.trim() === "") return;
+
+      push(ref(db, "chats"), {
+        name: name,
+        message: message,
+        timestamp: Date.now()
       });
-    }
+      chatInput.value = "";
+    };
 
-    window.sendChat = () => {
-      const input = document.getElementById("chat-input");
-      const message = input.value.trim();
-      if (!message) return;
-      push(ref(db, `rooms/${roomCode}/chat`), {
-        player: playerName,
-        message: message
-      });
-      input.value = "";
-    }
+    // Tampilkan pesan chat secara realtime
+    const chatRef = ref(db, "chats");
+    onChildAdded(chatRef, (data) => {
+      const chat = data.val();
+      const p = document.createElement("p");
+      p.textContent = `${chat.name}: ${chat.message}`;
+      chatBox.appendChild(p);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
   </script>
-</head>
-<body>
-  <div id="start">
-    <h1>Game Matematika Multiplayer</h1>
-    <input id="name" placeholder="Masukkan nama"><br><br>
-    <button onclick="start()" class="btn green">Lanjut</button>
-  </div>
-
-  <div id="room">
-    <button onclick="createRoom()" class="btn yellow">Buat Room</button><br><br>
-    <input id="joinCode" placeholder="Kode Room">
-    <button onclick="joinRoom()" class="btn red">Gabung Room</button>
-  </div>
-
-  <div id="quiz">
-    <h3>Kode Room: <span id="code"></span></h3>
-    <h2 id="question"></h2>
-    <div id="answers"></div>
-    <h3>Waktu: <span id="time">300</span> detik</h3>
-    <div id="scores"></div>
-  </div>
-
-  <div id="chat-container">
-    <div id="messages"></div>
-    <input id="chat-input" placeholder="Ketik pesan..." onkeydown="if(event.key==='Enter') sendChat()">
-    <button onclick="sendChat()">Kirim</button>
-  </div>
-
-  <div id="result">
-    <h1 id="message"></h1>
-    <button onclick="location.reload()" class="btn green">Main Lagi</button>
-  </div>
 </body>
 </html>
